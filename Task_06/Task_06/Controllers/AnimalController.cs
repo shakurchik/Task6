@@ -53,7 +53,7 @@ animals.Add(new Animal()
     public IActionResult AddAnimal(AddAnimal animal)
     {
 using SqlConnection connection= new SqlConnection(_configuration.GetConnectionString("Default"));
-
+connection.Open();
 using SqlCommand command = new SqlCommand();
 command.Connection = connection;
 command.CommandText = "INSERT into Animal VALUES(@animalName,'','','')";
