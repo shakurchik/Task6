@@ -2,12 +2,13 @@
 using Microsoft.Data.SqlClient;
 using Task_06.Models;
 using Task_06.Models.DTOs;
+using System.ComponentModel.DataAnnotations;
+using System.Data;
 
 namespace Task_06.Controllers;
 [ApiController]
 [Route("api/[controller]")]
-
-public class AnimalController:ControllerBase
+public class AnimalController : ControllerBase
 {
     private readonly IConfiguration _configuration;
 
@@ -17,50 +18,125 @@ public class AnimalController:ControllerBase
     }
 
     [HttpGet]
-    public IActionResult GetAnimals()
+    public IActionResult GetAnimals(string orderBy = "name")
     {
-        
-//Open connectio
-        
-       using SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("Default"));
+        string sqlOrderBy = orderBy.ToLower() switch
+        {
+            "name" => "Name",
+            "description" => "Description",
+            "category" => "Category",
+            "area" => "Area",
+            _ => "Name" // Default sorting
+        };
+
+        using SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("Default"));
         connection.Open();
+        using SqlCommand command = new SqlCommand($"SELECT * FROM Animal ORDER BY {sqlOrderBy} ASC", connection);
         
-//Creae command
-        using SqlCommand command= new SqlCommand();
-        command.Connection = connection;
-        command.CommandText = "SELECT*FROM Animal;";
-        
-        //Execute commamd
         var reader = command.ExecuteReader();
         var animals = new List<Animal>();
 
-        int idAnimalOrdinal = reader.GetOrdinal("IdAnimal");
-        int nameOrdinal = reader.GetOrdinal("Name");
-        
         while (reader.Read())
         {
-animals.Add(new Animal()
-{
-    IdAnimal = reader.GetInt32(idAnimalOrdinal),
-    Name=reader.GetString(nameOrdinal)
-});
+            animals.Add(new Animal
+            {
+                IdAnimal = reader.GetInt32("IdAnimal"),
+                Name = reader.GetString("Name"),
+                Description = reader.GetString("Description"),
+                Category = reader.GetString("Category"),
+                Area = reader.GetString("Area")
+            });
         }
 
         return Ok(animals);
     }
 
     [HttpPost]
-    public IActionResult AddAnimal(AddAnimal animal)
+    public IActionResult AddAnimal([FromBody] AddAnimal animal)
     {
-using SqlConnection connection= new SqlConnection(_configuration.GetConnectionString("Default"));
-connection.Open();
-using SqlCommand command = new SqlCommand();
-command.Connection = connection;
-command.CommandText = "INSERT into Animal VALUES(@animalName,'','','')";
-command.Parameters.AddWithValue("@animalName", animal.Name);
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
 
-command.ExecuteNonQuery();
-return Created(" ",null);
+        using SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("Default"));
+        connection.Open();
+        using SqlCommand command = new SqlCommand("INSERT INTO Animal (Name, Description, Category, Area) VALUES (@Name, @Description, @Category, @Area)", connection);
+        command.Parameters.AddWithValue("@Name", animal.Name);
+        command.Parameters.AddWithValue("@Description", animal.Description ?? string.Empty); // Handling possible null values
+        command.Parameters.AddWithValue("@Category", animal.Category ?? string.Empty);
+        command.Parameters.AddWithValue("@Area", animal.Area ?? string.Empty);
 
+        command.ExecuteNonQuery();
+        int newId = Convert.ToInt32(command.ExecuteScalar()); // Retrieves the newly created ID
+        return CreatedAtAction(nameof(GetAnimalById), new { id = newId }, animal);
+    }
+    [HttpGet("{id}")]
+    public IActionResult GetAnimalById(int id)
+    {
+        using (var connection = new SqlConnection(_configuration.GetConnectionString("Default")))
+        {
+            connection.Open();
+            var command = new SqlCommand("SELECT * FROM Animal WHERE IdAnimal = @Id", connection);
+            command.Parameters.AddWithValue("@Id", id);
+
+            var reader = command.ExecuteReader();
+            if (reader.Read())
+            {
+                var animal = new Animal
+                {
+                    IdAnimal = reader.GetInt32("IdAnimal"),
+                    Name = reader.GetString("Name"),
+                    Description = reader.GetString("Description"),
+                    Category = reader.GetString("Category"),
+                    Area = reader.GetString("Area")
+                };
+                return Ok(animal);
+            }
+            return NotFound();
+        }
+    }
+
+    [HttpPut("{idAnimal}")]
+    public IActionResult UpdateAnimal(int idAnimal, [FromBody] UpdateAnimal animal)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        using SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("Default"));
+        connection.Open();
+        using SqlCommand command = new SqlCommand("UPDATE Animal SET Name = @Name, Description = @Description, Category = @Category, Area = @Area WHERE IdAnimal = @IdAnimal", connection);
+        command.Parameters.AddWithValue("@IdAnimal", idAnimal);
+        command.Parameters.AddWithValue("@Name", animal.Name);
+        command.Parameters.AddWithValue("@Description", animal.Description ?? string.Empty);
+        command.Parameters.AddWithValue("@Category", animal.Category ?? string.Empty);
+        command.Parameters.AddWithValue("@Area", animal.Area ?? string.Empty);
+
+        int affectedRows = command.ExecuteNonQuery();
+        if (affectedRows == 0)
+        {
+            return NotFound();
+        }
+        return NoContent();
+    }
+
+    [HttpDelete("{idAnimal}")]
+    public IActionResult DeleteAnimal(int idAnimal)
+    {
+        using SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("Default"));
+        connection.Open();
+        using SqlCommand command = new SqlCommand("DELETE FROM Animal WHERE IdAnimal = @IdAnimal", connection);
+        command.Parameters.AddWithValue("@IdAnimal", idAnimal);
+
+        int affectedRows = command.ExecuteNonQuery();
+        if (affectedRows == 0)
+        {
+            return NotFound();
+        }
+        return NoContent();
     }
 }
+
+// Note: Ensure that DTO classes like `UpdateAnimal` are defined appropriately in your models or DTOs namespace
