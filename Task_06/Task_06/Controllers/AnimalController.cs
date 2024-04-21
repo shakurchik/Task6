@@ -26,7 +26,7 @@ public class AnimalController : ControllerBase
             "description" => "Description",
             "category" => "Category",
             "area" => "Area",
-            _ => "Name" 
+            _ => "Name" // Default sorting
         };
 
         using SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("Default"));
