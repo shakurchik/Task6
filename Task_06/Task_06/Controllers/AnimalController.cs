@@ -26,7 +26,7 @@ public class AnimalController : ControllerBase
             "description" => "Description",
             "category" => "Category",
             "area" => "Area",
-            _ => "Name" // Default sorting
+            _ => "Name" 
         };
 
         using SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("Default"));
@@ -63,12 +63,12 @@ public class AnimalController : ControllerBase
         connection.Open();
         using SqlCommand command = new SqlCommand("INSERT INTO Animal (Name, Description, Category, Area) VALUES (@Name, @Description, @Category, @Area)", connection);
         command.Parameters.AddWithValue("@Name", animal.Name);
-        command.Parameters.AddWithValue("@Description", animal.Description ?? string.Empty); // Handling possible null values
+        command.Parameters.AddWithValue("@Description", animal.Description ?? string.Empty); 
         command.Parameters.AddWithValue("@Category", animal.Category ?? string.Empty);
         command.Parameters.AddWithValue("@Area", animal.Area ?? string.Empty);
 
         command.ExecuteNonQuery();
-        int newId = Convert.ToInt32(command.ExecuteScalar()); // Retrieves the newly created ID
+        int newId = Convert.ToInt32(command.ExecuteScalar()); 
         return CreatedAtAction(nameof(GetAnimalById), new { id = newId }, animal);
     }
     [HttpGet("{id}")]
@@ -139,4 +139,3 @@ public class AnimalController : ControllerBase
     }
 }
 
-// Note: Ensure that DTO classes like `UpdateAnimal` are defined appropriately in your models or DTOs namespace
